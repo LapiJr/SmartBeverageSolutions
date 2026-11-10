@@ -1,0 +1,56 @@
+# Netlify settings for Vienna Konditorei
+# Plain static site: no build command, publish the repository root.
+
+[build]
+  publish = "."
+
+# Missing Dutch pages show the 404 page.
+[[redirects]]
+  from = "/nl/*"
+  to = "/404.html"
+  status = 404
+
+# Any other missing page shows the 404 page.
+[[redirects]]
+  from = "/*"
+  to = "/404.html"
+  status = 404
+
+# Basic security headers for every page
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "camera=(), microphone=(), geolocation=(), payment=()"
+    Strict-Transport-Security = "max-age=31536000"
+
+# HTML: always check for a fresh copy (Netlify answers quickly with a 304 when nothing changed)
+[[headers]]
+  for = "/*.html"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+# CSS and JavaScript: short cache, so new prices or styles show up within the hour
+[[headers]]
+  for = "/css/*"
+  [headers.values]
+    Cache-Control = "public, max-age=3600, must-revalidate"
+
+[[headers]]
+  for = "/js/*"
+  [headers.values]
+    Cache-Control = "public, max-age=3600, must-revalidate"
+
+# Images: cache for a week. If you replace a photo and want it to show right away,
+# give the new file a new name (for example hero-cafe-2.jpg) and update the HTML.
+[[headers]]
+  for = "/images/*"
+  [headers.values]
+    Cache-Control = "public, max-age=604800"
+
+[[headers]]
+  for = "/favicon.svg"
+  [headers.values]
+    Cache-Control = "public, max-age=604800"

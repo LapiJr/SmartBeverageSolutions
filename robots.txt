@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /thank-you.html
+Disallow: /nl/bedankt.html
+
+Sitemap: https://viennakonditorei.netlify.app/sitemap.xml
