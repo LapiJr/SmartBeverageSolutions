@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Admin | Vienna Konditorei</title>
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#F5F2EC">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600&family=Cormorant+Garamond:ital,wght@1,400&family=DM+Sans:opsz,wght@9..40,300..600&display=swap">
+<link rel="stylesheet" href="/css/style.css">
+<link rel="stylesheet" href="/admin/admin.css">
+<script src="/admin/admin.js" defer></script>
+</head>
+<body class="admin">
+
+<!-- Sign in -->
+<div class="login" id="login-view" hidden>
+  <div class="login-card">
+    <div class="logo"><span class="logo-main">Vienna</span><span class="logo-sub">Konditorei</span></div>
+    <h1 class="login-title">Admin portal</h1>
+    <form class="form" id="login-form" novalidate>
+      <div class="field">
+        <label for="login-user">Name</label>
+        <select class="select" id="login-user" name="user" required>
+          <option value="ali">Ali</option>
+          <option value="marko">Marko</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="login-password">Password</label>
+        <input class="input" id="login-password" name="password" type="password" autocomplete="current-password" required>
+      </div>
+      <p class="form-error" id="login-error" role="alert" hidden></p>
+      <button class="btn btn--block" type="submit">Sign in</button>
+    </form>
+    <p class="note-small"><a class="text-link" href="/">Back to the website</a></p>
+  </div>
+</div>
+
+<!-- Portal -->
+<div id="app-view" hidden>
+  <header class="admin-bar">
+    <div class="container admin-bar-inner">
+      <a class="logo" href="/admin/" aria-label="Vienna Konditorei admin"><span class="logo-main">Vienna</span><span class="logo-sub">Admin</span></a>
+      <p class="admin-user">Signed in as <strong id="user-name"></strong></p>
+      <a class="arrow-link" href="/" target="_blank" rel="noopener">View website</a>
+      <button class="btn btn--outline btn--small" type="button" id="logout">Sign out</button>
+    </div>
+    <div class="container">
+      <div class="tabs" role="tablist" aria-label="Sections">
+        <button class="tab" role="tab" type="button" id="tab-applications" aria-controls="panel-applications" aria-selected="true">Applications <span class="count" id="count-applications"></span></button>
+        <button class="tab" role="tab" type="button" id="tab-messages" aria-controls="panel-messages" aria-selected="false" tabindex="-1">Messages <span class="count" id="count-messages"></span></button>
+        <button class="tab" role="tab" type="button" id="tab-menu" aria-controls="panel-menu" aria-selected="false" tabindex="-1">Menu</button>
+        <button class="tab" role="tab" type="button" id="tab-photos" aria-controls="panel-photos" aria-selected="false" tabindex="-1">Photos</button>
+        <button class="tab" role="tab" type="button" id="tab-account" aria-controls="panel-account" aria-selected="false" tabindex="-1">Account</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container admin-main">
+    <!-- Applications -->
+    <section class="panel" id="panel-applications" role="tabpanel" aria-labelledby="tab-applications" tabindex="0">
+      <div class="panel-head">
+        <div><h1>Job applications</h1><p class="note-small">Everyone who applied through the Vacancies page, newest first.</p></div>
+        <button class="btn btn--outline btn--small" type="button" data-refresh>Refresh</button>
+      </div>
+      <div id="applications-list" class="cards"></div>
+    </section>
+
+    <!-- Messages -->
+    <section class="panel" id="panel-messages" role="tabpanel" aria-labelledby="tab-messages" tabindex="0" hidden>
+      <div class="panel-head">
+        <div><h1>Contact messages</h1><p class="note-small">Messages sent through the Contact page, newest first.</p></div>
+        <button class="btn btn--outline btn--small" type="button" data-refresh>Refresh</button>
+      </div>
+      <div id="messages-list" class="cards"></div>
+    </section>
+
+    <!-- Menu -->
+    <section class="panel" id="panel-menu" role="tabpanel" aria-labelledby="tab-menu" tabindex="0" hidden>
+      <div class="panel-head">
+        <div><h1>Menu</h1><p class="note-small">Change prices, add or remove items. After saving, the website and the downloadable PDF update within about a minute.</p></div>
+      </div>
+      <div class="save-bar">
+        <p id="menu-status" class="save-status" role="status">No changes</p>
+        <a class="arrow-link" href="/menu.pdf" target="_blank" rel="noopener">Open the PDF</a>
+        <button class="btn btn--outline btn--small" type="button" id="menu-reset">Undo changes</button>
+        <button class="btn btn--small" type="button" id="menu-save" disabled>Save menu</button>
+      </div>
+      <div id="menu-editor"></div>
+      <p><button class="btn btn--outline" type="button" id="menu-add-category">+ Add a category</button></p>
+    </section>
+
+    <!-- Photos -->
+    <section class="panel" id="panel-photos" role="tabpanel" aria-labelledby="tab-photos" tabindex="0" hidden>
+      <div class="panel-head">
+        <div><h1>Photos</h1><p class="note-small">Photos are made smaller automatically before they are uploaded, so the website stays fast. Changes are saved right away.</p></div>
+        <p id="photo-status" class="save-status" role="status"></p>
+      </div>
+
+      <h2 class="panel-sub">Home page gallery</h2>
+      <p class="note-small">Add, remove or reorder the photos in the gallery on the home page. Six photos fit the layout best.</p>
+      <div id="gallery-editor" class="photo-grid"></div>
+      <p>
+        <label class="btn btn--outline file-btn">+ Add a photo<input type="file" accept="image/jpeg,image/png,image/webp" id="gallery-add" class="visually-hidden"></label>
+      </p>
+
+      <h2 class="panel-sub">Photos on the pages</h2>
+      <p class="note-small">Replace a photo with a new one, or go back to the original.</p>
+      <div id="slot-editor" class="photo-grid"></div>
+    </section>
+
+    <!-- Account -->
+    <section class="panel" id="panel-account" role="tabpanel" aria-labelledby="tab-account" tabindex="0" hidden>
+      <div class="panel-head"><div><h1>Account</h1><p class="note-small">There are two accounts for this portal: Ali and Marko. Each person can change their own password here.</p></div></div>
+      <form class="form form-narrow" id="password-form" novalidate>
+        <div class="field"><label for="pw-current">Current password</label><input class="input" id="pw-current" type="password" autocomplete="current-password" required></div>
+        <div class="field"><label for="pw-next">New password</label><span class="hint" id="pw-hint">At least 10 characters.</span><input class="input" id="pw-next" type="password" autocomplete="new-password" minlength="10" required aria-describedby="pw-hint"></div>
+        <div class="field"><label for="pw-repeat">New password again</label><input class="input" id="pw-repeat" type="password" autocomplete="new-password" minlength="10" required></div>
+        <p class="form-error" id="pw-error" role="alert" hidden></p>
+        <p class="form-ok" id="pw-ok" role="status" hidden>Your password has been changed.</p>
+        <div><button class="btn" type="submit">Change password</button></div>
+      </form>
+    </section>
+  </main>
+</div>
+
+<noscript><p class="container">The admin portal needs JavaScript.</p></noscript>
+</body>
+</html>

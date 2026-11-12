@@ -2,5 +2,7 @@ User-agent: *
 Allow: /
 Disallow: /thank-you.html
 Disallow: /nl/bedankt.html
+Disallow: /admin/
+Disallow: /api/
 
 Sitemap: https://viennakonditorei.netlify.app/sitemap.xml

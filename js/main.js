@@ -272,9 +272,22 @@ var HOURS = [
     });
   }
 
+  var menuNavObserver = null;
+
+  // The category bar follows the menu data, so new categories appear by themselves.
+  function renderMenuNav() {
+    var nav = $('[data-menu-nav]');
+    var data = window.MENU_DATA;
+    if (!nav || !data) return;
+    $('ul', nav).innerHTML = data.categories.map(function (cat) {
+      return '<li><a href="#' + cat.id + '">' + escapeHtml((cat.nav || cat.title)[lang]) + '</a></li>';
+    }).join('');
+  }
+
   function initMenuNav() {
     var nav = $('[data-menu-nav]');
     if (!nav) return;
+    if (menuNavObserver) menuNavObserver.disconnect();
     var links = $all('a', nav);
     var list = $('ul', nav);
     var sections = links.map(function (a) { return document.getElementById(a.getAttribute('href').slice(1)); });
@@ -296,13 +309,68 @@ var HOURS = [
 
     if (!('IntersectionObserver' in window)) return;
     var visible = {};
-    var io = new IntersectionObserver(function (entries) {
+    menuNavObserver = new IntersectionObserver(function (entries) {
       entries.forEach(function (e) { visible[e.target.id] = e.isIntersecting; });
       for (var i = 0; i < sections.length; i++) {
         if (sections[i] && visible[sections[i].id]) { setActive(sections[i].id); break; }
       }
     }, { rootMargin: '-140px 0px -55% 0px', threshold: 0 });
-    sections.forEach(function (s) { if (s) io.observe(s); });
+    sections.forEach(function (s) { if (s) menuNavObserver.observe(s); });
+  }
+
+  /* ------------------------------------------------------------------------
+     Live content from the admin portal: menu changes and uploaded photos.
+     The page first shows what is in the HTML, then quietly updates.
+     The last answer is remembered in the browser so returning visitors
+     see the newest menu and photos straight away.
+     ------------------------------------------------------------------------ */
+  var SITE_KEY = 'vk-site';
+
+  function applyImages(images) {
+    if (!images) return;
+    var slots = images.slots || {};
+    $all('img[src^="/images/"]').forEach(function (img) {
+      var file = img.getAttribute('src').split('/').pop();
+      if (slots[file]) img.src = '/api/img/' + slots[file];
+    });
+    var gallery = $('[data-gallery]');
+    if (gallery && Array.isArray(images.gallery)) {
+      gallery.innerHTML = images.gallery.map(function (g) {
+        var file = g.src.split('/').pop();
+        var src = slots[file] && g.src.indexOf('/images/') === 0 ? '/api/img/' + slots[file] : g.src;
+        var alt = (g.alt && g.alt[lang]) || '';
+        return '<li class="reveal is-visible"><div class="media"><img src="' + escapeHtml(src) + '" alt="' + escapeHtml(alt).replace(/"/g, '&quot;') +
+          '" width="1200" height="1200" loading="lazy" decoding="async"></div></li>';
+      }).join('');
+    }
+  }
+
+  function applySite(site) {
+    if (!site) return;
+    if (site.menu && site.menu.categories) {
+      window.MENU_DATA = site.menu;
+      renderMenu();
+      renderMenuNav();
+      initMenuNav();
+    }
+    applyImages(site.images);
+  }
+
+  function initLiveContent() {
+    if (!$('#menu-root, [data-menu-teaser], img[src^="/images/"]') || !window.fetch) return;
+    var cached = read(SITE_KEY);
+    if (cached) {
+      try { applySite(JSON.parse(cached)); } catch (e) { cached = null; }
+    }
+    fetch('/api/site', { headers: { Accept: 'application/json' } })
+      .then(function (res) { return res.ok && /json/.test(res.headers.get('content-type') || '') ? res.text() : null; })
+      .then(function (text) {
+        if (!text || text === cached) return;
+        var site = JSON.parse(text);
+        store(SITE_KEY, text);
+        if (cached || site.menu || site.images) applySite(site);
+      })
+      .catch(function () { /* the site works fine without it */ });
   }
 
   /* ------------------------------------------------------------------------
@@ -349,6 +417,7 @@ var HOURS = [
   initLanguage();
   initReveal();
   initMenuNav();
+  initLiveContent();
   initApply();
   initForms();
 })();

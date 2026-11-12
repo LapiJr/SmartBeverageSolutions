@@ -1,20 +1,17 @@
 # Netlify settings for Vienna Konditorei
-# Plain static site: no build command, publish the repository root.
+# Static site: no build command, publish the repository root.
 
 [build]
   publish = "."
 
-# Missing Dutch pages show the 404 page.
-[[redirects]]
-  from = "/nl/*"
-  to = "/404.html"
-  status = 404
+# The admin portal, the live menu and the menu PDF run as one small function.
+# Netlify installs what it needs from package.json by itself.
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
+  external_node_modules = ["pdfkit"]
 
-# Any other missing page shows the 404 page.
-[[redirects]]
-  from = "/*"
-  to = "/404.html"
-  status = 404
+# Missing pages show 404.html automatically (Netlify does this for any site that has a 404.html).
 
 # Basic security headers for every page
 [[headers]]
@@ -54,3 +51,10 @@
   for = "/favicon.svg"
   [headers.values]
     Cache-Control = "public, max-age=604800"
+
+# Admin portal: never cached, never indexed
+[[headers]]
+  for = "/admin/*"
+  [headers.values]
+    Cache-Control = "no-store"
+    X-Robots-Tag = "noindex, nofollow"
