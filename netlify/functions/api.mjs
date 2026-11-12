@@ -1,5 +1,5 @@
 // Vienna Konditorei: one small Netlify Function for
-//   - the admin portal (login for Ali and Marko, menu, photos, form submissions)
+//   - the admin portal (login for Ali and Marko, menu, photos, hours, vacancies, texts, form submissions)
 //   - the public site data (/api/site), uploaded photos (/api/img/...)
 //   - the downloadable menu (/menu.pdf and /nl/menu.pdf)
 //
@@ -208,6 +208,62 @@ async function currentMenu() {
 }
 
 // ---------------------------------------------------------------------------
+// Settings: opening hours, vacancies, announcement bar and page texts
+// ---------------------------------------------------------------------------
+const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const longText = (v, max) => (typeof v === 'string' ? v.replace(/\r/g, '').replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim().slice(0, max) : '');
+
+function cleanTimes(v) {
+  const closed = !!v?.closed || !TIME_RE.test(v?.opens) || !TIME_RE.test(v?.closes);
+  return closed ? { closed: true, opens: null, closes: null } : { closed: false, opens: v.opens, closes: v.closes };
+}
+
+function cleanSettings(input) {
+  const out = { hours: null, jobs: null, announcement: null, texts: {} };
+
+  if (Array.isArray(input?.hours?.week) && input.hours.week.length === 7) {
+    out.hours = { week: input.hours.week.map(cleanTimes), special: [] };
+    for (const d of (Array.isArray(input.hours.special) ? input.hours.special : []).slice(0, 40)) {
+      if (!DATE_RE.test(d?.date)) continue;
+      out.hours.special.push({ date: d.date, label: pair(d.label, 60), ...cleanTimes(d) });
+    }
+    out.hours.special.sort((a, b) => a.date.localeCompare(b.date));
+  }
+
+  if (Array.isArray(input?.jobs)) {
+    out.jobs = [];
+    const used = new Set();
+    for (const j of input.jobs.slice(0, 12)) {
+      const title = pair(j?.title, 60);
+      if (!title) continue;
+      let id = slug(j.id) || slug(title.en) || 'job';
+      if (id === 'open') id = 'job-open';
+      let unique = id;
+      for (let i = 2; used.has(unique); i++) unique = `${id}-${i}`;
+      used.add(unique);
+      out.jobs.push({ id: unique, title, hours: pair(j.hours, 100), desc: pair(j.desc, 500), open: j.open !== false });
+    }
+  }
+
+  if (input?.announcement) {
+    const a = input.announcement;
+    out.announcement = { enabled: !!a.enabled, text: pair(a.text, 200), until: DATE_RE.test(a.until) ? a.until : '' };
+    if (!out.announcement.text) out.announcement.enabled = false;
+  }
+
+  if (input?.texts && typeof input.texts === 'object') {
+    for (const [key, value] of Object.entries(input.texts).slice(0, 80)) {
+      if (!/^[a-z0-9.]{1,40}$/.test(key) || !value) continue;
+      const en = longText(value.en, 3000);
+      const nl = longText(value.nl, 3000);
+      if (en || nl) out.texts[key] = { en, nl };
+    }
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------------------
 // Photos
 // ---------------------------------------------------------------------------
 const KEY_RE = /^[a-f0-9]{24}\.(jpg|png|webp)$/;
@@ -346,8 +402,10 @@ export default async (req, context) => {
 
     if (path === '/api/site' && method === 'GET') {
       const store = data();
-      const [menu, imgs] = await Promise.all([store.get('menu', { type: 'json' }), store.get('images', { type: 'json' })]);
-      return json({ menu: menu || null, images: imgs || null }, 200, {
+      const [menu, imgs, settings] = await Promise.all([
+        store.get('menu', { type: 'json' }), store.get('images', { type: 'json' }), store.get('settings', { type: 'json' }),
+      ]);
+      return json({ menu: menu || null, images: imgs || null, settings: settings || null }, 200, {
         'Cache-Control': 'public, max-age=0, must-revalidate',
         'Netlify-CDN-Cache-Control': 'public, s-maxage=60',
       });
@@ -373,7 +431,13 @@ export default async (req, context) => {
 
       if (route === 'site' && method === 'GET') {
         const imgs = (await data().get('images', { type: 'json' })) || { slots: {}, gallery: null };
-        return json({ menu: await currentMenu(), images: imgs });
+        const settings = (await data().get('settings', { type: 'json' })) || cleanSettings({});
+        return json({ menu: await currentMenu(), images: imgs, settings });
+      }
+      if (route === 'settings' && method === 'PUT') {
+        const settings = cleanSettings(await readJson(req));
+        await data().setJSON('settings', settings);
+        return json({ ok: true, settings });
       }
       if (route === 'menu' && method === 'PUT') {
         const menu = cleanMenu(await readJson(req));

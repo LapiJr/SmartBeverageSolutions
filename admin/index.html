@@ -55,6 +55,9 @@
         <button class="tab" role="tab" type="button" id="tab-messages" aria-controls="panel-messages" aria-selected="false" tabindex="-1">Messages <span class="count" id="count-messages"></span></button>
         <button class="tab" role="tab" type="button" id="tab-menu" aria-controls="panel-menu" aria-selected="false" tabindex="-1">Menu</button>
         <button class="tab" role="tab" type="button" id="tab-photos" aria-controls="panel-photos" aria-selected="false" tabindex="-1">Photos</button>
+        <button class="tab" role="tab" type="button" id="tab-hours" aria-controls="panel-hours" aria-selected="false" tabindex="-1">Hours</button>
+        <button class="tab" role="tab" type="button" id="tab-jobs" aria-controls="panel-jobs" aria-selected="false" tabindex="-1">Vacancies</button>
+        <button class="tab" role="tab" type="button" id="tab-website" aria-controls="panel-website" aria-selected="false" tabindex="-1">Website</button>
         <button class="tab" role="tab" type="button" id="tab-account" aria-controls="panel-account" aria-selected="false" tabindex="-1">Account</button>
       </div>
     </div>
@@ -111,6 +114,45 @@
       <h2 class="panel-sub">Photos on the pages</h2>
       <p class="note-small">Replace a photo with a new one, or go back to the original.</p>
       <div id="slot-editor" class="photo-grid"></div>
+    </section>
+
+    <!-- Hours -->
+    <section class="panel" id="panel-hours" role="tabpanel" aria-labelledby="tab-hours" tabindex="0" hidden>
+      <div class="panel-head"><div><h1>Opening hours</h1><p class="note-small">These hours show in the footer of every page, on the home page and on the contact page.</p></div></div>
+      <div class="save-bar">
+        <p id="hours-status" class="save-status" role="status"></p>
+        <button class="btn btn--small" type="button" id="hours-save">Save hours</button>
+      </div>
+      <h2 class="panel-sub">Every week</h2>
+      <div id="week-editor" class="rows"></div>
+      <h2 class="panel-sub">Special days</h2>
+      <p class="note-small">Holidays and other days with different hours. They show under the normal hours from two months before the date, and disappear by themselves afterwards.</p>
+      <div id="special-editor" class="rows"></div>
+      <p><button class="btn btn--outline" type="button" id="special-add">+ Add a special day</button></p>
+    </section>
+
+    <!-- Vacancies -->
+    <section class="panel" id="panel-jobs" role="tabpanel" aria-labelledby="tab-jobs" tabindex="0" hidden>
+      <div class="panel-head"><div><h1>Vacancies</h1><p class="note-small">The job openings on the Vacancies page. Close a job to hide it without deleting it. With no open jobs, visitors can still send an open application.</p></div></div>
+      <div class="save-bar">
+        <p id="jobs-status" class="save-status" role="status"></p>
+        <button class="btn btn--small" type="button" id="jobs-save">Save vacancies</button>
+      </div>
+      <div id="jobs-editor"></div>
+      <p><button class="btn btn--outline" type="button" id="jobs-add">+ Add a job opening</button></p>
+    </section>
+
+    <!-- Website: announcement and texts -->
+    <section class="panel" id="panel-website" role="tabpanel" aria-labelledby="tab-website" tabindex="0" hidden>
+      <div class="panel-head"><div><h1>Website</h1><p class="note-small">The announcement bar and the texts on the Home and About pages.</p></div></div>
+      <div class="save-bar">
+        <p id="website-status" class="save-status" role="status"></p>
+        <button class="btn btn--small" type="button" id="website-save">Save</button>
+      </div>
+      <h2 class="panel-sub">Announcement bar</h2>
+      <p class="note-small">A short message in a red bar at the top of every page, for example "Closed on 25 December".</p>
+      <div id="announce-editor"></div>
+      <div id="texts-editor"></div>
     </section>
 
     <!-- Account -->

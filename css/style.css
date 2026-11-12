@@ -307,6 +307,16 @@ h3 { font-size: clamp(1.35rem, 2vw, 1.6rem); letter-spacing: 0.04em; }
   --focus: var(--white);
 }
 
+/* Announcement bar (set in the admin portal) */
+.announce {
+  background: var(--vienna-red);
+  color: var(--white);
+  text-align: center;
+  font-size: 0.9375rem;
+  font-weight: 500;
+}
+.announce p { margin: 0; padding-block: 0.7rem; }
+
 /* --------------------------------------------------------------------------
    Header
    -------------------------------------------------------------------------- */
@@ -830,6 +840,7 @@ figcaption {
   border-bottom: 1px solid var(--line);
 }
 .hours dd { font-variant-numeric: tabular-nums; text-align: right; }
+.hours .hours-special { color: var(--vienna-red-dark); }
 
 .map {
   aspect-ratio: 4 / 3;
@@ -944,6 +955,7 @@ figcaption {
   border-radius: var(--radius);
   padding: clamp(1.75rem, 3vw, 2.5rem);
 }
+.jobs-empty { grid-column: 1 / -1; max-width: 40rem; }
 .job-card h3 { margin-bottom: 0.5rem; }
 .job-meta {
   margin: 0 0 1.25rem;

@@ -36,9 +36,12 @@ Go to `https://your-site/admin/`. Only two people can sign in: **Ali** and **Mar
 | Messages | Read messages from the Contact page, reply by email, delete |
 | Menu | Change prices and texts, add, move or delete items, groups and categories |
 | Photos | Add, remove and reorder the home gallery photos; replace any other photo or go back to the original |
+| Hours | Change the weekly opening hours and add special days such as holidays |
+| Vacancies | Add, edit, close or delete job openings |
+| Website | Switch the red announcement bar on or off, and edit the Home and About texts, including the owner story |
 | Account | Change your own password |
 
-Menu and photo changes show on the website and in the PDF within about a minute. Nobody has to
+Changes show on the website (and menu changes in the PDF) within about a minute. Nobody has to
 touch any files.
 
 ### One time setup in Netlify
@@ -71,6 +74,10 @@ include the server part.
 - Deleting an application or message in the portal deletes it from Netlify too. Use this to keep
   to the privacy statement (applications: 4 weeks after a hiring round).
 - The menu saved in the portal wins over `js/menu-data.js`. That file is only the starting menu.
+  The same goes for the hours in `js/main.js` and the texts and jobs written in the HTML pages:
+  they are the starting point, and what is saved in the portal wins.
+- Special days show under the normal hours from two months before the date and disappear afterwards.
+- When the owner story is saved in the portal, the "placeholder" label disappears from the About page.
 - Uploaded photos are stored by Netlify (Blobs), not in the `/images/` folder.
 - Costs: all of this fits in Netlify's free plan for a cafe website.
 
@@ -80,6 +87,8 @@ Most everyday changes (menu and photos) are now done in the admin portal. The no
 changes in the files themselves.
 
 ### Change opening hours
+The easy way is the **Hours** tab in the admin portal. The file below holds the starting hours.
+
 Open `js/main.js`. At the top you will find `HOURS`. Change the times there and they update in the
 footer of every page, on the home page, on the contact page, and in the Google data on the home page.
 

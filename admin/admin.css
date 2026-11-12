@@ -134,3 +134,24 @@
 
 .form-narrow { max-width: 28rem; }
 .form-ok { margin: 0; color: #2F6B3A; font-weight: 500; }
+
+/* Hours, vacancies and website texts */
+.rows { display: grid; gap: 0.5rem; margin: 1rem 0; }
+.hrow {
+  display: grid; gap: 0.5rem 1rem; align-items: end;
+  grid-template-columns: 9rem 8rem 8rem auto;
+  background: var(--white); border: 1px solid var(--line); border-radius: var(--radius); padding: 0.6rem 1rem;
+}
+.hrow--special { grid-template-columns: 11rem minmax(9rem, 1fr) minmax(9rem, 1fr) 8rem 8rem auto auto; }
+.hrow .day { font-weight: 500; align-self: center; margin: 0; }
+.hrow .star, .job .star { display: flex; align-items: center; gap: 0.5rem; min-height: 44px; margin: 0; cursor: pointer; font-size: 0.9375rem; }
+.hrow .star input, .job .star input { width: 20px; height: 20px; accent-color: var(--vienna-red); }
+@media (max-width: 900px) {
+  .hrow, .hrow--special { grid-template-columns: 1fr 1fr; }
+  .hrow .day { grid-column: 1 / -1; }
+}
+.job { background: var(--white); border: 1px solid var(--line); border-radius: var(--radius); padding: 0.5rem 1.25rem 1.25rem; margin-bottom: 1rem; }
+.job.is-closed { opacity: 0.7; }
+.admin .textarea--s { min-height: 96px; padding: 0.5rem 0.65rem; font-size: 0.9875rem; }
+.text-group { background: var(--white); border: 1px solid var(--line); border-radius: var(--radius); padding: 0.25rem 1.25rem 1rem; margin-bottom: 1rem; }
+.text-label { font-family: var(--font-body); font-size: 1rem; font-weight: 500; text-transform: none; letter-spacing: 0; margin: 1.25rem 0 0; }

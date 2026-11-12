@@ -4,7 +4,8 @@
    ========================================================================== */
 
 /* --------------------------------------------------------------------------
-   OPENING HOURS: edit them here, in one place.
+   OPENING HOURS: the starting hours. Once the hours are saved in the admin
+   portal (Hours tab), the portal hours are used instead.
    They are shown in the footer of every page, on the home page and on the
    contact page, and copied into the Google data (JSON-LD) on the home page.
    Use 24 hour times. Set opens to null for a day you are closed.
@@ -61,14 +62,66 @@ var HOURS = [
   /* ------------------------------------------------------------------------
      Opening hours
      ------------------------------------------------------------------------ */
+  var DAY_NAMES = {
+    en: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'],
+    nl: ['Maandag', 'Dinsdag', 'Woensdag', 'Donderdag', 'Vrijdag', 'Zaterdag', 'Zondag']
+  };
+  var hoursRows = HOURS;   // the weekly hours (replaced by the admin portal settings when present)
+  var specialDays = [];    // holidays and other special days from the admin portal
+
   function hoursText(row) {
     if (!row.opens) return lang === 'nl' ? 'Gesloten' : 'Closed';
     return row.opens + ' – ' + row.closes;
   }
 
+  // Turns seven days into short rows, for example "Monday to Friday".
+  function rowsFromWeek(week) {
+    var rows = [];
+    var start = 0;
+    for (var i = 1; i <= 7; i++) {
+      var same = i < 7 && week[i].closed === week[start].closed && week[i].opens === week[start].opens && week[i].closes === week[start].closes;
+      if (same) continue;
+      var end = i - 1;
+      var names = {};
+      ['en', 'nl'].forEach(function (l) {
+        var d = DAY_NAMES[l];
+        if (end === start) names[l] = d[start];
+        else if (end === start + 1) names[l] = d[start] + (l === 'nl' ? ' en ' : ' and ') + d[end].toLowerCase().replace(/^./, function (c) { return l === 'nl' ? c : c.toUpperCase(); });
+        else names[l] = d[start] + (l === 'nl' ? ' t/m ' + d[end].toLowerCase() : ' to ' + d[end]);
+      });
+      rows.push({
+        days: names,
+        schemaDays: DAY_NAMES.en.slice(start, end + 1),
+        opens: week[start].closed ? null : week[start].opens,
+        closes: week[start].closed ? null : week[start].closes
+      });
+      start = i;
+    }
+    return rows;
+  }
+
+  function todayIso() {
+    var d = new Date();
+    return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2);
+  }
+
+  // Special days from today up to about two months ahead.
+  function upcomingSpecial() {
+    var today = todayIso();
+    var limit = new Date(Date.now() + 62 * 86400000).toISOString().slice(0, 10);
+    return specialDays.filter(function (d) { return d.date >= today && d.date <= limit; }).slice(0, 6);
+  }
+
   function renderHours() {
-    var html = HOURS.map(function (row) {
+    var html = hoursRows.map(function (row) {
       return '<dt>' + escapeHtml(row.days[lang]) + '</dt><dd>' + hoursText(row) + '</dd>';
+    }).join('');
+    html += upcomingSpecial().map(function (d) {
+      var parts = d.date.split('-');
+      var date = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+      var label = date.toLocaleDateString(lang === 'nl' ? 'nl-NL' : 'en-GB', { weekday: 'short', day: 'numeric', month: 'long' });
+      if (d.label && d.label[lang]) label += ', ' + d.label[lang];
+      return '<dt class="hours-special">' + escapeHtml(label) + '</dt><dd class="hours-special">' + hoursText(d.closed ? {} : d) + '</dd>';
     }).join('');
     $all('[data-hours]').forEach(function (el) { el.innerHTML = html; });
 
@@ -77,9 +130,17 @@ var HOURS = [
     if (ld) {
       try {
         var data = JSON.parse(ld.textContent);
-        data.openingHoursSpecification = HOURS.filter(function (r) { return r.opens; }).map(function (r) {
+        data.openingHoursSpecification = hoursRows.filter(function (r) { return r.opens; }).map(function (r) {
           return { '@type': 'OpeningHoursSpecification', dayOfWeek: r.schemaDays, opens: r.opens, closes: r.closes };
         });
+        var special = upcomingSpecial();
+        if (special.length) {
+          data.specialOpeningHoursSpecification = special.map(function (d) {
+            return { '@type': 'OpeningHoursSpecification', validFrom: d.date, validThrough: d.date, opens: d.closed ? '00:00' : d.opens, closes: d.closed ? '00:00' : d.closes };
+          });
+        } else {
+          delete data.specialOpeningHoursSpecification;
+        }
         ld.textContent = JSON.stringify(data, null, 2);
       } catch (e) { /* leave the static data in place */ }
     }
@@ -345,6 +406,85 @@ var HOURS = [
     }
   }
 
+  // Announcement bar at the very top of every page.
+  function applyAnnouncement(a) {
+    var old = $('[data-announce]');
+    if (old) old.parentNode.removeChild(old);
+    if (!a || !a.enabled || !a.text || !a.text[lang]) return;
+    if (a.until && a.until < todayIso()) return;
+    var bar = document.createElement('div');
+    bar.className = 'announce';
+    bar.setAttribute('data-announce', '');
+    bar.setAttribute('role', 'status');
+    bar.innerHTML = '<div class="container"><p>' + escapeHtml(a.text[lang]) + '</p></div>';
+    document.body.insertBefore(bar, document.body.firstChild);
+  }
+
+  // Page texts edited in the admin portal. Elements are marked with data-text="key".
+  function applyTexts(texts) {
+    if (!texts) return;
+    $all('[data-text]').forEach(function (el) {
+      var value = texts[el.getAttribute('data-text')];
+      var text = value && value[lang];
+      if (!text) return;
+      if (el.hasAttribute('data-text-multi')) {
+        el.innerHTML = text.split(/\n\s*\n/).map(function (p) { return '<p>' + escapeHtml(p.trim()).replace(/\n/g, '<br>') + '</p>'; }).join('');
+      } else {
+        el.textContent = text;
+      }
+    });
+    // Once the owner story is written, the block is no longer a placeholder.
+    var story = texts['about.story.text'];
+    if (story && story[lang]) {
+      $all('[data-story]').forEach(function (el) { el.classList.remove('placeholder-block'); });
+      $all('[data-story-tag]').forEach(function (el) { el.hidden = true; });
+    }
+  }
+
+  // Vacancies: the job cards and the role list in the form.
+  function applyJobs(jobs) {
+    var list = $('[data-jobs]');
+    if (!list || !Array.isArray(jobs)) return;
+    var open = jobs.filter(function (j) { return j.open !== false; });
+    var apply = lang === 'nl' ? 'Solliciteer' : 'Apply';
+    var as = lang === 'nl' ? 'als' : 'as';
+    if (open.length) {
+      list.innerHTML = open.map(function (j) {
+        var title = escapeHtml(j.title[lang]);
+        return '<li class="reveal is-visible"><article class="job-card"><h3>' + title + '</h3>' +
+          (j.hours && j.hours[lang] ? '<p class="job-meta">' + escapeHtml(j.hours[lang]) + '</p>' : '') +
+          (j.desc && j.desc[lang] ? '<p>' + escapeHtml(j.desc[lang]) + '</p>' : '') +
+          '<a class="btn btn--outline" href="#apply" data-apply-role="' + j.id + '">' + apply +
+          '<span class="visually-hidden"> ' + as + ' ' + title + '</span></a></article></li>';
+      }).join('');
+    } else {
+      list.innerHTML = '<li class="jobs-empty"><p>' + (lang === 'nl'
+        ? 'Op dit moment hebben we geen open vacatures. Je kunt altijd een open sollicitatie sturen met het formulier hieronder.'
+        : 'We have no open positions right now. You are always welcome to send an open application with the form below.') + '</p></li>';
+    }
+    var select = document.getElementById('role');
+    if (select) {
+      var current = select.value;
+      select.innerHTML = '<option value="">' + (lang === 'nl' ? 'Kies een functie' : 'Choose a role') + '</option>' +
+        open.map(function (j) { return '<option value="' + j.id + '">' + escapeHtml(j.title[lang]) + '</option>'; }).join('') +
+        '<option value="open">' + (lang === 'nl' ? 'Open sollicitatie' : 'Open application') + '</option>';
+      select.value = current;
+      if (!open.length) select.value = 'open';
+    }
+  }
+
+  function applySettings(settings) {
+    if (!settings) return;
+    if (settings.hours && settings.hours.week && settings.hours.week.length === 7) {
+      hoursRows = rowsFromWeek(settings.hours.week);
+      specialDays = settings.hours.special || [];
+      renderHours();
+    }
+    applyAnnouncement(settings.announcement);
+    applyTexts(settings.texts);
+    applyJobs(settings.jobs);
+  }
+
   function applySite(site) {
     if (!site) return;
     if (site.menu && site.menu.categories) {
@@ -354,10 +494,11 @@ var HOURS = [
       initMenuNav();
     }
     applyImages(site.images);
+    applySettings(site.settings);
   }
 
   function initLiveContent() {
-    if (!$('#menu-root, [data-menu-teaser], img[src^="/images/"]') || !window.fetch) return;
+    if (!window.fetch) return;
     var cached = read(SITE_KEY);
     if (cached) {
       try { applySite(JSON.parse(cached)); } catch (e) { cached = null; }
@@ -368,7 +509,7 @@ var HOURS = [
         if (!text || text === cached) return;
         var site = JSON.parse(text);
         store(SITE_KEY, text);
-        if (cached || site.menu || site.images) applySite(site);
+        if (cached || site.menu || site.images || site.settings) applySite(site);
       })
       .catch(function () { /* the site works fine without it */ });
   }
@@ -377,16 +518,16 @@ var HOURS = [
      Vacancies: "Apply" preselects the role in the form
      ------------------------------------------------------------------------ */
   function initApply() {
-    $all('[data-apply-role]').forEach(function (btn) {
-      btn.addEventListener('click', function () {
-        var select = document.getElementById('role');
-        if (select) select.value = btn.getAttribute('data-apply-role');
-        // move focus to the form after the scroll, for keyboard and screen reader users
-        window.setTimeout(function () {
-          var first = document.getElementById('first-name');
-          if (first) first.focus({ preventScroll: true });
-        }, reduceMotion ? 0 : 600);
-      });
+    document.addEventListener('click', function (e) {
+      var btn = e.target.closest ? e.target.closest('[data-apply-role]') : null;
+      if (!btn) return;
+      var select = document.getElementById('role');
+      if (select) select.value = btn.getAttribute('data-apply-role');
+      // move focus to the form after the scroll, for keyboard and screen reader users
+      window.setTimeout(function () {
+        var first = document.getElementById('first-name');
+        if (first) first.focus({ preventScroll: true });
+      }, reduceMotion ? 0 : 600);
     });
   }
 

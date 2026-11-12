@@ -43,7 +43,7 @@
       });
   }
 
-  var state = { user: null, menu: null, savedMenu: '', images: { slots: {}, gallery: null }, loaded: {} };
+  var state = { user: null, menu: null, savedMenu: '', images: { slots: {}, gallery: null }, settings: null, defaults: { texts: {}, jobs: [] }, loaded: {} };
 
   /* ------------------------------------------------------------------------
      Sign in and out
@@ -91,7 +91,7 @@
     });
     if (focus) tab.focus();
     var name = tab.id.replace('tab-', '');
-    if ((name === 'menu' || name === 'photos') && !state.loaded.site) loadSite();
+    if (name !== 'applications' && name !== 'messages' && name !== 'account' && !state.loaded.site) loadSite();
   }
   tabs.forEach(function (tab, i) {
     tab.addEventListener('click', function () { selectTab(tab); });
@@ -104,7 +104,14 @@
   /* ------------------------------------------------------------------------
      Applications and messages
      ------------------------------------------------------------------------ */
-  var ROLES = { barista: 'Barista', service: 'Service staff / host', kitchen: 'Kitchen assistant', open: 'Open application' };
+  var BASE_ROLES = { barista: 'Barista', service: 'Service staff / host', kitchen: 'Kitchen assistant', open: 'Open application' };
+  var ROLES = new Proxy({}, {
+    get: function (_, id) {
+      var jobs = (state.settings && state.settings.jobs) || [];
+      var job = jobs.filter(function (j) { return j.id === id; })[0];
+      return job ? job.title.en : BASE_ROLES[id];
+    }
+  });
   var DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
 
   function formatDate(iso) {
@@ -577,12 +584,260 @@
     api('/api/admin/site').then(function (site) {
       state.images = site.images || { slots: {}, gallery: null };
       state.images.slots = state.images.slots || {};
+      state.settings = site.settings || { hours: null, jobs: null, announcement: null, texts: {} };
       setMenu(site.menu);
       renderPhotos();
+      return loadDefaults().then(renderSettings);
     }).catch(function (err) {
       state.loaded.site = false;
       if (err.status !== 401) markMenu(err.message, 'is-dirty');
     });
+  }
+
+  /* ------------------------------------------------------------------------
+     Settings: hours, vacancies, announcement and page texts
+     ------------------------------------------------------------------------ */
+  var DAY_LABELS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+  var DEFAULT_WEEK = [
+    { closed: false, opens: '08:30', closes: '19:00' }, { closed: false, opens: '08:30', closes: '19:00' },
+    { closed: false, opens: '08:30', closes: '19:00' }, { closed: false, opens: '08:30', closes: '19:00' },
+    { closed: false, opens: '08:30', closes: '19:00' }, { closed: false, opens: '09:00', closes: '19:00' },
+    { closed: false, opens: '10:00', closes: '18:00' }
+  ];
+  // The texts that can be edited: [key, label, long text?]
+  var TEXT_GROUPS = [
+    ['Home page', [
+      ['home.hero.title', 'Large heading at the top'],
+      ['home.hero.sub', 'Line under the heading'],
+      ['home.intro.title', 'Welcome: heading'],
+      ['home.intro.lede', 'Welcome: first text', true],
+      ['home.intro.text', 'Welcome: second text', true]
+    ]],
+    ['About page', [
+      ['about.title', 'Large heading at the top'],
+      ['about.lede', 'Text under the heading', true],
+      ['about.cakes.title', 'Cakes and pastries: heading'],
+      ['about.cakes.text', 'Cakes and pastries: text', true],
+      ['about.coffee.title', 'Coffee and food: heading'],
+      ['about.coffee.text', 'Coffee and food: text', true],
+      ['about.place.title', 'The place: heading'],
+      ['about.place.text', 'The place: text', true]
+    ]],
+    ['About page: owner story', [
+      ['about.story.title', 'Heading'],
+      ['about.story.text', 'The story. Leave an empty line between paragraphs. Once you save your own text here, the "placeholder" label disappears from the website.', true]
+    ]]
+  ];
+
+  // Read the original texts and jobs from the website pages themselves.
+  function loadDefaults() {
+    if (state.loaded.defaults) return Promise.resolve();
+    function page(url) {
+      return fetch(url).then(function (r) { return r.text(); }).then(function (html) { return new DOMParser().parseFromString(html, 'text/html'); });
+    }
+    function textOf(el) {
+      if (el.hasAttribute('data-text-multi')) return $all('p', el).map(function (p) { return p.textContent.trim(); }).join('\n\n');
+      return el.textContent.trim();
+    }
+    return Promise.all([page('/'), page('/nl/'), page('/about.html'), page('/nl/over-ons.html'), page('/vacancies.html'), page('/nl/vacatures.html')])
+      .then(function (docs) {
+        docs.slice(0, 4).forEach(function (doc, i) {
+          var lang = i % 2 ? 'nl' : 'en';
+          $all('[data-text]', doc).forEach(function (el) {
+            var key = el.getAttribute('data-text');
+            state.defaults.texts[key] = state.defaults.texts[key] || { en: '', nl: '' };
+            state.defaults.texts[key][lang] = textOf(el);
+          });
+        });
+        var jobs = {};
+        [docs[4], docs[5]].forEach(function (doc, i) {
+          var lang = i ? 'nl' : 'en';
+          $all('.job-card', doc).forEach(function (card, n) {
+            var id = $('[data-apply-role]', card).getAttribute('data-apply-role');
+            var job = jobs[id] = jobs[id] || { id: id, order: n, title: {}, hours: {}, desc: {}, open: true };
+            job.title[lang] = $('h3', card).textContent.trim();
+            job.hours[lang] = ($('.job-meta', card) || {}).textContent || '';
+            job.desc[lang] = ($('p:not(.job-meta)', card) || {}).textContent || '';
+          });
+        });
+        state.defaults.jobs = Object.keys(jobs).map(function (k) { return jobs[k]; }).sort(function (a, b) { return a.order - b.order; })
+          .map(function (j) { delete j.order; return j; });
+        state.loaded.defaults = true;
+      });
+  }
+
+  function setStatus(id, text, cls) {
+    var el = document.getElementById(id);
+    el.textContent = text || '';
+    el.className = 'save-status' + (cls ? ' ' + cls : '');
+  }
+  function touched(id) { return function () { setStatus(id, 'You have changes that are not saved yet', 'is-dirty'); }; }
+
+  function saveSettings(statusId) {
+    setStatus(statusId, 'Saving…');
+    return api('/api/admin/settings', { method: 'PUT', body: state.settings })
+      .then(function (res) {
+        state.settings = res.settings;
+        renderSettings();
+        setStatus(statusId, 'Saved. The website updates within about a minute.', 'is-ok');
+      })
+      .catch(function (err) { setStatus(statusId, err.message, 'is-dirty'); });
+  }
+
+  function input(label, value, oninput, opts) {
+    opts = opts || {};
+    var id = 's' + (++uid);
+    var control = opts.long
+      ? h('textarea', { class: 'textarea textarea--s', id: id, maxlength: opts.max || 3000, oninput: function (e) { oninput(e.target.value); } })
+      : h('input', { class: 'input input--s', id: id, type: opts.type || 'text', maxlength: opts.max || 200, value: value || '', disabled: opts.disabled, oninput: function (e) { oninput(e.target.value); } });
+    if (opts.long) control.value = value || '';
+    return h('div', { class: 'mini' }, [h('label', { for: id, text: label }), control]);
+  }
+  function check(label, checked, onchange) {
+    return h('label', { class: 'star' }, [h('input', { type: 'checkbox', checked: checked, onchange: function (e) { onchange(e.target.checked); } }), label]);
+  }
+
+  // ---- hours ----
+  function hoursState() {
+    if (!state.settings.hours) state.settings.hours = { week: JSON.parse(JSON.stringify(DEFAULT_WEEK)), special: [] };
+    return state.settings.hours;
+  }
+
+  function renderHours() {
+    var hours = hoursState();
+    var dirty = touched('hours-status');
+    fill($('#week-editor'), hours.week.map(function (day, i) {
+      return h('div', { class: 'hrow' }, [
+        h('p', { class: 'day', text: DAY_LABELS[i] }),
+        input('Opens', day.opens || '', function (v) { day.opens = v; dirty(); }, { type: 'time', disabled: day.closed }),
+        input('Closes', day.closes || '', function (v) { day.closes = v; dirty(); }, { type: 'time', disabled: day.closed }),
+        check('Closed', day.closed, function (on) { day.closed = on; if (!on) { day.opens = day.opens || '09:00'; day.closes = day.closes || '18:00'; } renderHours(); dirty(); })
+      ]);
+    }));
+    fill($('#special-editor'), hours.special.length ? hours.special.map(function (day, i) {
+      day.label = day.label || { en: '', nl: '' };
+      return h('div', { class: 'hrow hrow--special' }, [
+        input('Date', day.date, function (v) { day.date = v; dirty(); }, { type: 'date' }),
+        input('Name (English)', day.label.en, function (v) { day.label.en = v; dirty(); }, { max: 60 }),
+        input('Name (Dutch)', day.label.nl, function (v) { day.label.nl = v; dirty(); }, { max: 60 }),
+        input('Opens', day.opens || '', function (v) { day.opens = v; dirty(); }, { type: 'time', disabled: day.closed }),
+        input('Closes', day.closes || '', function (v) { day.closes = v; dirty(); }, { type: 'time', disabled: day.closed }),
+        check('Closed', day.closed, function (on) { day.closed = on; if (!on) { day.opens = day.opens || '10:00'; day.closes = day.closes || '17:00'; } renderHours(); dirty(); }),
+        iconBtn('Delete this day', '✕', function () { hours.special.splice(i, 1); renderHours(); dirty(); }, { danger: true })
+      ]);
+    }) : [h('p', { class: 'empty', text: 'No special days yet.' })]);
+  }
+
+  $('#special-add').addEventListener('click', function () {
+    hoursState().special.push({ date: '', label: { en: '', nl: '' }, closed: true, opens: null, closes: null });
+    renderHours(); touched('hours-status')();
+    var rows = $all('#special-editor .hrow'); $('input', rows[rows.length - 1]).focus();
+  });
+  $('#hours-save').addEventListener('click', function () {
+    var hours = hoursState();
+    var bad = hours.week.some(function (d) { return !d.closed && (!d.opens || !d.closes); }) ||
+      hours.special.some(function (d) { return !d.date || (!d.closed && (!d.opens || !d.closes)); });
+    if (bad) { setStatus('hours-status', 'Please fill in a date and both times for every open day.', 'is-dirty'); return; }
+    saveSettings('hours-status');
+  });
+
+  // ---- vacancies ----
+  function jobsState() {
+    if (!Array.isArray(state.settings.jobs)) state.settings.jobs = JSON.parse(JSON.stringify(state.defaults.jobs));
+    return state.settings.jobs;
+  }
+
+  function renderJobs() {
+    var jobs = jobsState();
+    var dirty = touched('jobs-status');
+    fill($('#jobs-editor'), jobs.length ? jobs.map(function (job, i) {
+      ['title', 'hours', 'desc'].forEach(function (k) { job[k] = job[k] || { en: '', nl: '' }; });
+      function f(label, key, lang, opts) { return input(label, job[key][lang], function (v) { job[key][lang] = v; dirty(); }, opts); }
+      return h('div', { class: 'job' + (job.open === false ? ' is-closed' : '') }, [
+        h('div', { class: 'mini-grid' }, [f('Job title (English)', 'title', 'en', { max: 60 }), f('Job title (Dutch)', 'title', 'nl', { max: 60 })]),
+        h('div', { class: 'mini-grid' }, [f('Hours (English)', 'hours', 'en', { max: 100 }), f('Hours (Dutch)', 'hours', 'nl', { max: 100 })]),
+        h('div', { class: 'mini-grid' }, [f('Description (English)', 'desc', 'en', { long: true, max: 500 }), f('Description (Dutch)', 'desc', 'nl', { long: true, max: 500 })]),
+        h('div', { class: 'row-actions' }, [
+          check('Open (shown on the website)', job.open !== false, function (on) { job.open = on; renderJobs(); dirty(); }),
+          iconBtn('Move up', '↑', function () { jobs.splice(i - 1, 0, jobs.splice(i, 1)[0]); renderJobs(); dirty(); }, { disabled: i === 0 }),
+          iconBtn('Move down', '↓', function () { jobs.splice(i + 1, 0, jobs.splice(i, 1)[0]); renderJobs(); dirty(); }, { disabled: i === jobs.length - 1 }),
+          h('button', { class: 'btn btn--danger btn--small', type: 'button', text: 'Delete', onclick: function () {
+            if (!window.confirm('Delete the job "' + (job.title.en || 'New job') + '"? To only hide it, untick "Open" instead.')) return;
+            jobs.splice(i, 1); renderJobs(); dirty();
+          } })
+        ])
+      ]);
+    }) : [h('p', { class: 'empty', text: 'No job openings. Visitors can still send an open application.' })]);
+  }
+  $('#jobs-add').addEventListener('click', function () {
+    jobsState().push({ id: '', title: { en: '', nl: '' }, hours: { en: '', nl: '' }, desc: { en: '', nl: '' }, open: true });
+    renderJobs(); touched('jobs-status')();
+    var cards = $all('#jobs-editor .job'); $('input', cards[cards.length - 1]).focus();
+  });
+  $('#jobs-save').addEventListener('click', function () {
+    if (jobsState().some(function (j) { return !j.title.en && !j.title.nl; })) { setStatus('jobs-status', 'Please give every job a title.', 'is-dirty'); return; }
+    saveSettings('jobs-status');
+  });
+
+  // ---- announcement and texts ----
+  var textDraft = {};
+
+  function renderWebsite() {
+    var dirty = touched('website-status');
+    var a = state.settings.announcement = state.settings.announcement || { enabled: false, text: { en: '', nl: '' }, until: '' };
+    a.text = a.text || { en: '', nl: '' };
+    fill($('#announce-editor'), [h('div', { class: 'text-group' }, [
+      h('div', { class: 'mini-grid' }, [
+        input('Message (English)', a.text.en, function (v) { a.text.en = v; dirty(); }, { max: 200 }),
+        input('Message (Dutch)', a.text.nl, function (v) { a.text.nl = v; dirty(); }, { max: 200 })
+      ]),
+      h('div', { class: 'row-actions' }, [
+        check('Show the bar on the website', a.enabled, function (on) { a.enabled = on; dirty(); }),
+        input('Hide automatically after (optional)', a.until, function (v) { a.until = v; dirty(); }, { type: 'date' })
+      ])
+    ])]);
+
+    textDraft = {};
+    fill($('#texts-editor'), TEXT_GROUPS.map(function (group) {
+      return h('div', {}, [
+        h('h2', { class: 'panel-sub', text: group[0] }),
+        h('div', { class: 'text-group' }, group[1].map(function (def) {
+          var key = def[0];
+          var saved = state.settings.texts[key] || {};
+          var orig = state.defaults.texts[key] || { en: '', nl: '' };
+          textDraft[key] = { en: saved.en || orig.en, nl: saved.nl || orig.nl };
+          return h('div', {}, [
+            h('h3', { class: 'text-label', text: def[1] }),
+            h('div', { class: 'mini-grid' }, [
+              input('English', textDraft[key].en, function (v) { textDraft[key].en = v; dirty(); }, { long: def[2], max: 3000 }),
+              input('Dutch', textDraft[key].nl, function (v) { textDraft[key].nl = v; dirty(); }, { long: def[2], max: 3000 })
+            ])
+          ]);
+        }))
+      ]);
+    }).concat([h('p', { class: 'note-small', text: 'Tip: empty a field and save to get the original text back.' })]));
+  }
+
+  $('#website-save').addEventListener('click', function () {
+    var a = state.settings.announcement;
+    if (a.enabled && !a.text.en && !a.text.nl) { setStatus('website-status', 'Write a message for the bar, or untick "Show the bar".', 'is-dirty'); return; }
+    var texts = {};
+    Object.keys(textDraft).forEach(function (key) {
+      var orig = state.defaults.texts[key] || { en: '', nl: '' };
+      var en = textDraft[key].en.trim();
+      var nl = textDraft[key].nl.trim();
+      var changedEn = en && en !== orig.en;
+      var changedNl = nl && nl !== orig.nl;
+      if (changedEn || changedNl) texts[key] = { en: changedEn ? en : '', nl: changedNl ? nl : '' };
+    });
+    state.settings.texts = texts;
+    saveSettings('website-status');
+  });
+
+  function renderSettings() {
+    renderHours();
+    renderJobs();
+    renderWebsite();
   }
 
   /* ------------------------------------------------------------------------
