@@ -464,11 +464,37 @@
       return new Promise(function (resolve, reject) {
         canvas.toBlob(function (blob) { blob ? resolve(blob) : reject(new Error('This photo could not be read.')); }, 'image/jpeg', 0.82);
       });
-    }, function () { throw new Error('This file is not a photo we can read. Please use JPG, PNG or WebP.'); });
+    }, function () { throw new Error('This file is not a photo we can read. Please use JPG, PNG, WebP or HEIC.'); });
+  }
+
+  // Phone photos are often HEIC, which browsers cannot show. Turn them into JPEG first.
+  // The converter is large, so it is only loaded when a HEIC photo is chosen.
+  var heicLoader = null;
+  function isHeic(file) {
+    return /image\/hei[cf]/i.test(file.type || '') || /\.hei[cf]$/i.test(file.name || '');
+  }
+  function fromHeic(file) {
+    if (!isHeic(file)) return Promise.resolve(file);
+    photoStatus('Converting the phone photo\u2026');
+    heicLoader = heicLoader || new Promise(function (resolve, reject) {
+      var script = document.createElement('script');
+      script.src = '/admin/vendor/heic2any.min.js';
+      script.onload = resolve;
+      script.onerror = function () { heicLoader = null; reject(new Error('The photo converter could not be loaded. Please try again.')); };
+      document.head.appendChild(script);
+    });
+    return heicLoader.then(function () {
+      return window.heic2any({ blob: file, toType: 'image/jpeg', quality: 0.92 });
+    }).then(function (result) {
+      return Array.isArray(result) ? result[0] : result;
+    }, function (err) {
+      if (err && /converter could not be loaded/.test(err.message)) throw err;
+      throw new Error('This HEIC photo could not be converted. Please save it as JPG and try again.');
+    });
   }
 
   function upload(file) {
-    return shrink(file).then(function (blob) {
+    return fromHeic(file).then(function (readable) { photoStatus('Uploading\u2026'); return shrink(readable); }).then(function (blob) {
       return api('/api/admin/images', { method: 'POST', body: blob, headers: { 'Content-Type': 'image/jpeg' } });
     });
   }
@@ -481,7 +507,7 @@
   }
 
   function fileButton(label, onfile, cls) {
-    var input = h('input', { type: 'file', accept: 'image/jpeg,image/png,image/webp', class: 'visually-hidden' });
+    var input = h('input', { type: 'file', accept: 'image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif', class: 'visually-hidden' });
     input.addEventListener('change', function () { if (input.files[0]) onfile(input.files[0]); input.value = ''; });
     return h('label', { class: 'btn btn--small file-btn ' + (cls || 'btn--outline') }, [label, input]);
   }
