@@ -545,6 +545,11 @@
       h('div', { class: 'row-actions' }, [
         iconBtn('Move earlier', '←', function () { reorder(-1); }, { disabled: index === 0 }),
         iconBtn('Move later', '→', function () { reorder(1); }, { disabled: index === list.length - 1 }),
+        fileButton('Replace', function (f) {
+          photoStatus('Uploading…');
+          upload(f).then(function (res) { item.src = res.src; state.images.gallery = list; return saveImages('Photo replaced'); })
+            .catch(function (err) { photoStatus(err.message, 'is-dirty'); });
+        }),
         h('button', {
           class: 'btn btn--danger btn--small', type: 'button', text: 'Remove',
           onclick: function () {

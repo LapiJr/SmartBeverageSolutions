@@ -5,7 +5,7 @@ A small, fast, bilingual website for Vienna Konditorei, a cafe on the Plaats in 
 - Plain HTML, CSS and a little JavaScript. No framework, no build step.
 - English at the root (`/`), Dutch in `/nl/`.
 - Ready for Netlify, including Netlify Forms for the contact and job forms.
-- An admin portal at `/admin/` for Ali and Marko: job applications, contact messages, the menu and
+- An admin portal at `/admin/` for Ali and Mustafa: job applications, contact messages, the menu and
   the photos. See "Admin portal" below.
 - The menu can be downloaded as a PDF (`/menu.pdf` and `/nl/menu.pdf`). It is made fresh from the
   current menu, so it always has the latest items and prices.
@@ -28,7 +28,7 @@ A small, fast, bilingual website for Vienna Konditorei, a cafe on the Plaats in 
 
 ## Admin portal
 
-Go to `https://your-site/admin/`. Only two people can sign in: **Ali** and **Marko**.
+Go to `https://your-site/admin/`. Only two people can sign in: **Ali** and **Mustafa**.
 
 | Tab | What you can do |
 |---|---|
@@ -55,7 +55,7 @@ include the server part.
    | Key | Value |
    |---|---|
    | `ADMIN_PASSWORD_ALI` | a first password for Ali (make it long) |
-   | `ADMIN_PASSWORD_MARKO` | a first password for Marko (make it long) |
+   | `ADMIN_PASSWORD_MUSTAFA` | a first password for Mustafa (make it long) |
    | `NETLIFY_API_TOKEN` | a personal access token, see step 2 |
 
 2. The token lets the portal read the form submissions. Click your avatar (bottom left) >
@@ -67,9 +67,11 @@ include the server part.
 
 ### Good to know
 
-- **Forgot a password?** Change `ADMIN_PASSWORD_ALI` or `ADMIN_PASSWORD_MARKO` in Netlify, then ask
+- **Forgot a password?** Change `ADMIN_PASSWORD_ALI` or `ADMIN_PASSWORD_MUSTAFA` in Netlify, then ask
   the developer to clear the saved password (in Netlify: *Blobs* > store `vienna` > key `auth`,
   delete it). Both people then sign in with the first passwords again.
+- The second account used to be called Marko. If `ADMIN_PASSWORD_MARKO` is still set in Netlify, delete it
+  and add `ADMIN_PASSWORD_MUSTAFA` instead.
 - After 5 wrong passwords an account is locked for 15 minutes. You stay signed in for 7 days.
 - Deleting an application or message in the portal deletes it from Netlify too. Use this to keep
   to the privacy statement (applications: 4 weeks after a hiring round).
@@ -228,7 +230,7 @@ Netlify finds the four forms automatically when the site is deployed:
   and in the JSON-LD on both home pages.
 - **Photos:** full size versions of the two real photos, and all remaining placeholders (see the
   table above). Use the Photos tab in the admin portal.
-- **Admin portal settings** in Netlify: `ADMIN_PASSWORD_ALI`, `ADMIN_PASSWORD_MARKO` and
+- **Admin portal settings** in Netlify: `ADMIN_PASSWORD_ALI`, `ADMIN_PASSWORD_MUSTAFA` and
   `NETLIFY_API_TOKEN` (see "Admin portal").
 - **Short description of the cafe** on the home page (marked `PLACEHOLDER` in `index.html` and
   `nl/index.html`).

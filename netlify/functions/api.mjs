@@ -1,10 +1,10 @@
 // Vienna Konditorei: one small Netlify Function for
-//   - the admin portal (login for Ali and Marko, menu, photos, hours, vacancies, texts, form submissions)
+//   - the admin portal (login for Ali and Mustafa, menu, photos, hours, vacancies, texts, form submissions)
 //   - the public site data (/api/site), uploaded photos (/api/img/...)
 //   - the downloadable menu (/menu.pdf and /nl/menu.pdf)
 //
 // Data lives in Netlify Blobs. Settings are environment variables in Netlify:
-//   ADMIN_PASSWORD_ALI, ADMIN_PASSWORD_MARKO   first passwords for the two accounts
+//   ADMIN_PASSWORD_ALI, ADMIN_PASSWORD_MUSTAFA   first passwords for the two accounts
 //   NETLIFY_API_TOKEN                          lets the portal read form submissions
 import crypto from 'node:crypto';
 import { getStore } from '@netlify/blobs';
@@ -13,7 +13,7 @@ import { buildMenuPdf } from './lib/pdf.mjs';
 
 export const config = { path: ['/api/*', '/menu.pdf', '/nl/menu.pdf'] };
 
-const USERS = { ali: 'Ali', marko: 'Marko' }; // the only two accounts
+const USERS = { ali: 'Ali', mustafa: 'Mustafa' }; // the only two accounts
 const COOKIE = 'vk_session';
 const SESSION_DAYS = 7;
 const MAX_FAILS = 5;
