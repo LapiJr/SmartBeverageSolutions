@@ -4,6 +4,12 @@
 [build]
   publish = "."
 
+# Netlify scans every file for the secret settings (passwords, token) before publishing.
+# The photo converter in admin/vendor is one large third party file, where a short password
+# can appear by coincidence. It holds no secrets, so it is skipped.
+[build.environment]
+  SECRETS_SCAN_OMIT_PATHS = "admin/vendor/**"
+
 # The admin portal, the live menu and the menu PDF run as one small function.
 # Netlify installs what it needs from package.json by itself.
 [functions]
