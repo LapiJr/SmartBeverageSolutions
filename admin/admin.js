@@ -446,10 +446,19 @@
     { src: '/images/gallery-6.jpg', alt: { en: 'The pastry counter', nl: 'De vitrine met gebak' } }
   ];
 
+  // Photo messages show at the top of the tab and in a bar at the bottom of the screen,
+  // so they are visible wherever you have scrolled to.
+  var toastTimer = null;
   function photoStatus(text, cls) {
     var el = $('#photo-status');
     el.textContent = text || '';
     el.className = 'save-status' + (cls ? ' ' + cls : '');
+    var toast = $('#toast');
+    clearTimeout(toastTimer);
+    toast.textContent = text || '';
+    toast.className = 'toast' + (cls ? ' ' + cls : '');
+    toast.hidden = !text;
+    if (cls === 'is-ok') toastTimer = setTimeout(function () { toast.hidden = true; }, 5000);
   }
 
   // Make the photo smaller in the browser before uploading (max 2000 px, JPEG).
@@ -468,35 +477,41 @@
   }
 
   // Phone photos are often HEIC, which browsers cannot show. Turn them into JPEG first.
-  // The converter is large, so it is only loaded when a HEIC photo is chosen.
+  // The converter is large, so it is only loaded when it is needed.
   var heicLoader = null;
   function isHeic(file) {
     return /image\/hei[cf]/i.test(file.type || '') || /\.hei[cf]$/i.test(file.name || '');
   }
   function fromHeic(file) {
-    if (!isHeic(file)) return Promise.resolve(file);
-    photoStatus('Converting the phone photo\u2026');
+    photoStatus('Converting the phone photo. This can take up to a minute\u2026');
     heicLoader = heicLoader || new Promise(function (resolve, reject) {
       var script = document.createElement('script');
-      script.src = '/admin/vendor/heic2any.min.js';
+      script.src = '/admin/vendor/heic-to.js';
       script.onload = resolve;
-      script.onerror = function () { heicLoader = null; reject(new Error('The photo converter could not be loaded. Please try again.')); };
+      script.onerror = function () { heicLoader = null; reject(new Error('The photo converter could not be loaded. Check your internet connection and try again.')); };
       document.head.appendChild(script);
     });
     return heicLoader.then(function () {
-      return window.heic2any({ blob: file, toType: 'image/jpeg', quality: 0.92 });
-    }).then(function (result) {
-      return Array.isArray(result) ? result[0] : result;
-    }, function (err) {
-      if (err && /converter could not be loaded/.test(err.message)) throw err;
-      throw new Error('This HEIC photo could not be converted. Please save it as JPG and try again.');
+      return window.HeicTo({ blob: file, type: 'image/jpeg', quality: 0.92 }).catch(function () {
+        throw new Error('This photo could not be converted. Please save it as JPG and try again.');
+      });
     });
   }
 
   function upload(file) {
-    return fromHeic(file).then(function (readable) { photoStatus('Uploading\u2026'); return shrink(readable); }).then(function (blob) {
-      return api('/api/admin/images', { method: 'POST', body: blob, headers: { 'Content-Type': 'image/jpeg' } });
-    });
+    var converted = isHeic(file);
+    var ready = converted ? fromHeic(file) : Promise.resolve(file);
+    return ready
+      .then(function (readable) { photoStatus('Making the photo smaller\u2026'); return shrink(readable); })
+      .catch(function (err) {
+        // Some phone photos have no clear file type. Try the converter once before giving up.
+        if (converted || !/not a photo we can read/.test(err.message)) throw err;
+        return fromHeic(file).then(shrink);
+      })
+      .then(function (blob) {
+        photoStatus('Uploading\u2026');
+        return api('/api/admin/images', { method: 'POST', body: blob, headers: { 'Content-Type': 'image/jpeg' } });
+      });
   }
 
   function saveImages(message) {

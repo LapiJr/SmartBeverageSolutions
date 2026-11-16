@@ -155,3 +155,13 @@
 .admin .textarea--s { min-height: 96px; padding: 0.5rem 0.65rem; font-size: 0.9875rem; }
 .text-group { background: var(--white); border: 1px solid var(--line); border-radius: var(--radius); padding: 0.25rem 1.25rem 1rem; margin-bottom: 1rem; }
 .text-label { font-family: var(--font-body); font-size: 1rem; font-weight: 500; text-transform: none; letter-spacing: 0; margin: 1.25rem 0 0; }
+
+/* Message bar at the bottom of the screen (photo uploads) */
+.toast {
+  position: fixed; left: 50%; bottom: 1.25rem; transform: translateX(-50%); z-index: 80;
+  width: max-content; max-width: calc(100vw - 2rem); margin: 0;
+  padding: 0.85rem 1.4rem; border-radius: var(--radius);
+  background: var(--ink); color: var(--white); font-weight: 500; text-align: center;
+}
+.toast.is-ok { background: #2F6B3A; }
+.toast.is-dirty { background: var(--vienna-red-dark); }
